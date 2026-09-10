@@ -16,9 +16,6 @@
 Run all tests with:
     $ python -m unittest test
 
-Run lxml parser test with:
-    $ python -m unittest test.LxmlTest
-
 Run single test with:
     $ python -m unittest test.GPXTests.test_method
 """
@@ -37,8 +34,7 @@ import unittest as mod_unittest
 import xml.dom.minidom as mod_minidom
 
 try:
-    # Load LXML or fallback to cET or ET 
-    import lxml.etree as mod_etree  # type: ignore
+    import xml.etree.cElementTree as mod_etree
 except ImportError:
     import xml.etree.ElementTree as mod_etree  # type: ignore
 
@@ -206,15 +202,6 @@ class GPXTests(mod_unittest.TestCase):
             self.assertTrue(('unclosed token: line 1, column 5' in str(e)) or ('expected \'>\'' in str(e)))
             self.assertTrue(isinstance(e, mod_gpx.GPXXMLSyntaxException))
             self.assertTrue(e.__cause__)
-
-            try:
-                # more checks if lxml:
-                import lxml.etree as mod_etree
-                import xml.parsers.expat as mod_expat
-                self.assertTrue(isinstance(e.__cause__, mod_etree.XMLSyntaxError)
-                                or isinstance(e.__cause__, mod_expat.ExpatError))
-            except:
-                pass
 
     def test_creator_field(self) -> None:
         gpx = self.parse('cerknicko-jezero.gpx')
@@ -855,6 +842,24 @@ class GPXTests(mod_unittest.TestCase):
         self.assertEqual(gpx.bounds.max_latitude, 100) # type: ignore
         self.assertEqual(gpx.bounds.min_longitude, -100) # type: ignore
         self.assertEqual(gpx.bounds.max_longitude, 100) # type: ignore
+
+    def test_bounds_zero(self) -> None:
+        gpx = mod_gpx.GPX()
+
+        track = mod_gpx.GPXTrack()
+
+        segment_1 = mod_gpx.GPXTrackSegment()
+        segment_1.points.append(mod_gpx.GPXTrackPoint(latitude=0, longitude=1))
+        segment_1.points.append(mod_gpx.GPXTrackPoint(latitude=1, longitude=1))
+        segment_1.points.append(mod_gpx.GPXTrackPoint(latitude=2, longitude=2))
+        track.segments.append(segment_1)
+        gpx.tracks.append(track)
+        
+        bounds = gpx.get_bounds()
+        self.assertEqual(bounds.min_latitude, 0) # type: ignore
+        self.assertEqual(bounds.max_latitude, 2) # type: ignore
+        self.assertEqual(bounds.min_longitude, 1) # type: ignore
+        self.assertEqual(bounds.max_longitude, 2) # type: ignore
 
     def test_bounds_xml(self) -> None:
         track = mod_gpx.GPX()
@@ -2646,6 +2651,14 @@ class GPXTests(mod_unittest.TestCase):
 
         self.assertTrue('<name>Test&lt;a&gt;jkljkl&lt;/gpx&gt;</name>' in gpx_2.to_xml())
 
+    def test_xml_link_chars_encode(self) -> None:
+        gpx = self.parse('brouter_with_link.gpx')
+
+        xml = gpx.to_xml()
+
+        self.assertTrue('<link href="https://brouter.m11n.de/#map=14/48.3257/8.9601/osm-mapnik-german_style&amp;lonlats=8.94809,48.336472;8.968735,48.323235&amp;name=&quot;Hechingen&quot;">' in xml)
+        self.assertEqual(mod_gpxpy.parse(xml).tracks[0].link, gpx.tracks[0].link)
+
     def test_xml_chars_encode_decode_extensions(self) -> None:
         gpx = mod_gpxpy.gpx.GPX()
         ext = mod_etree.Element('test')
@@ -3300,6 +3313,7 @@ class GPXTests(mod_unittest.TestCase):
         self.assertEqual(2, len(gpx.waypoints[0].extensions))
         self.assertEqual("bbb", gpx.waypoints[0].extensions[0].text)
         self.assertEqual("eee", list(gpx.waypoints[0].extensions[1])[0].text.strip())
+        f.close()
 
     def test_garmin_extension(self) -> None:
         f = open('test_files/gpx_with_garmin_extension.gpx')
@@ -3308,6 +3322,7 @@ class GPXTests(mod_unittest.TestCase):
         self.assertTrue("<gpxtpx:TrackPointExtension>" in xml)
         self.assertTrue("<gpxtpx:hr>171</gpxtpx:hr>" in xml)
         print(gpx.to_xml())
+        f.close()
 
     def test_with_ns_namespace(self) -> None:
         gpx_with_ns = mod_gpxpy.parse("""<?xml version="1.0" encoding="UTF-8"?>
@@ -3387,6 +3402,7 @@ class GPXTests(mod_unittest.TestCase):
 
         xml = gpx.to_xml()
         self.assertNotIn('e-', xml)
+        f.close()
 
     def test_gpx_fill_time_data_with_start_time_and_end_time(self) -> None:
         gpx = self.parse('cerknicko-jezero.gpx')
@@ -3574,11 +3590,6 @@ class GPXTests(mod_unittest.TestCase):
         self.assertAlmostEqual(waypoint_orig.latitude, waypoint.latitude)
         self.assertAlmostEqual(waypoint_orig.longitude, waypoint.longitude)
         self.assertAlmostEqual(waypoint_orig.elevation, waypoint.elevation) # type: ignore
-
-class LxmlTest(mod_unittest.TestCase):
-    @mod_unittest.skipIf(mod_os.environ.get('XMLPARSER')!="LXML", "LXML not installed")
-    def test_checklxml(self) -> None:
-        self.assertEqual('LXML', mod_parser.library())
 
 if __name__ == '__main__':
     mod_unittest.main()

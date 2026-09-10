@@ -214,7 +214,7 @@ class GPXField(AbstractGPXField):
         if not prettyprint:
             indent = ''
         if self.attribute:
-            return f'{self.attribute}="{mod_utils.make_str(value)}"'
+            return f'{self.attribute}="{mod_saxutils.escape(mod_utils.make_str(value), {chr(34): "&quot;"})}"'
         elif self.type_converter:
             value = self.type_converter.to_string(value)
         if self.tag:
@@ -556,7 +556,7 @@ def gpx_fields_to_xml(instance: Any, tag: str, version: str, custom_attributes: 
     return ''.join(body)
 
 
-def gpx_fields_from_xml(class_or_instance: Any, node: str, version: str) -> Any:
+def gpx_fields_from_xml(class_or_instance: Any, node: Any, version: str) -> Any:
     if mod_inspect.isclass(class_or_instance):
         result = class_or_instance()
     else:

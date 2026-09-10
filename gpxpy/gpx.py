@@ -187,8 +187,6 @@ class GPXBounds:
 class GPXXMLSyntaxException(GPXException):
     """
     Exception used when the XML syntax is invalid.
-
-    The __cause__ can be a minidom or lxml exception (See http://www.python.org/dev/peps/pep-3134/).
     """
     def __init__(self, message: str, original_exception: BaseException) -> None:
         GPXException.__init__(self, message)
@@ -985,7 +983,7 @@ class GPXTrackSegment:
             if max_lon is None or point.longitude > max_lon:
                 max_lon = point.longitude
 
-        if min_lat and max_lat and min_lon and max_lon:
+        if mod_utils.is_numeric(min_lat) and mod_utils.is_numeric(max_lat) and mod_utils.is_numeric(min_lon) and mod_utils.is_numeric(max_lon):
             return GPXBounds(min_lat, max_lat, min_lon, max_lon)
         return None
 
